@@ -1,0 +1,131 @@
+---
+title: "Nuclear Group Project"
+author: "Group members"
+date: "2024-10-10"
+output: html_document
+---
+
+```{r echo = FALSE}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+dat <- read_excel("Nuclear(2).xlsx")
+dat$D <- gsub("^.{0,5}", "", dat$D) # makes date just the year for simplicity
+dat$D <- as.numeric(dat$D) # converts year to numerical
+dat$CT <- factor(dat$CT)
+dat$JP <- factor(dat$JP)
+dat$CP <- factor(dat$CP)
+dat$North <- factor(dat$North) #converts data to factor
+
+dat$Cost <- sqrt(dat$Cost) #take square root - residual plot without this line looks more like a quadratic
+
+dat$Cost24 <- sqrt(dat$Cost24) # Used date from each year to adjust cost for inflation up to 2024 - will compare later on
+str(dat) # what data.frame looks like at this point
+
+df <- dat[ -c(1,3) ] #removes location and date - location is tricky to tackle and date is not no longer needed
+
+df <- df[-c(21,22),] #removes 2 points of data that have an unusually high cost located in Civaux - will need mentioning
+
+```
+
+```{r echo = FALSE}
+df2 <- df
+df2 <- df2[ -c(6,7,8,10)] # removes factor variables to create pairwise scatterplot to assess any associations and to get an idea of what we might expect in the model
+plot(df2)
+
+```
+
+```{r echo = FALSE}
+
+## model selection process - removing a non-significant variable at each step
+
+fit1 <- lm(Cost ~ T1 + T2 + S + RN + North + CT + CP + N + JP, data=df) # full model
+summary(fit1)
+AIC(fit1) # prints AIC after every model selection
+
+fit2 <- lm(Cost ~ T1 + T2 + S + RN + CT + CP + N + JP, data=df) 
+summary(fit2) # removes North
+AIC(fit2)
+
+fit3 <- lm(Cost ~ T1 + T2 + S + RN + CP + N + JP, data=df)
+summary(fit3) # removes CT
+AIC(fit3)
+
+fit4 <- lm(Cost ~ T1 + T2 + RN + CP + N + JP, data=df)
+summary(fit4) # removes S
+AIC(fit4)
+
+fit5 <- lm(Cost ~ T2 + RN + CP + N + JP, data=df)
+summary(fit5) # removes T1
+AIC(fit5)
+
+fit6 <- lm(Cost ~ T2 + RN + CP + JP, data=df)
+summary(fit6) # removes N
+AIC(fit6)
+
+# fit6 is final model - T2, RN, CP, JP
+
+fit24 <- lm(Cost24 ~ T2 + RN + CP + JP, data=df)
+summary(fit24)
+AIC(fit24)
+
+par(mfrow = c(2, 2))
+plot(fit6, main = "No inflation")
+
+par(mfrow = c(2, 2))
+plot(fit24, main = "With inflation")
+```
+
+boxplots for factor variables including the two outliers:
+
+```{r, echo=FALSE}
+qplot(dat$North, dat$Cost, geom="boxplot", xlab="North", ylab="Cost")
+qplot(dat$CT, dat$Cost, geom="boxplot", xlab="CT", ylab="Cost")
+qplot(dat$CP, dat$Cost, geom="boxplot", xlab="CP", ylab="Cost")
+qplot(dat$JP, dat$Cost, geom="boxplot", xlab="JP", ylab="Cost")
+```
+
+boxplots for factor variables not including the two outliers:
+
+```{r, echo=FALSE}
+df <- dat[-c(21,22),]
+qplot(df$North, df$Cost, geom="boxplot", xlab="North", ylab="Cost")
+qplot(df$CT, df$Cost, geom="boxplot", xlab="CT", ylab="Cost")
+qplot(df$CP, df$Cost, geom="boxplot", xlab="CP", ylab="Cost")
+qplot(df$JP, df$Cost, geom="boxplot", xlab="JP")
+```
+
+Do not use following model (Was experimenting)
+
+```{r echo = FALSE}
+
+## model selection process ver 2 adjusted for inflation (date)
+
+fit1 <- lm(Cost24 ~ T1 + T2 + S + RN + North + CT + CP + N + JP, data=df) # full model
+summary(fit1)
+AIC(fit1) # prints AIC after every model selection
+
+fit2 <- lm(Cost24 ~ T1 + T2 + S + RN + CT + CP + N + JP, data=df) # removes North
+summary(fit2)
+AIC(fit2)
+
+fit3 <- lm(Cost24 ~ T1 + T2 + S + RN + CP + N + JP, data=df) # removes CT
+summary(fit3)
+AIC(fit3)
+
+fit4 <- lm(Cost24 ~ T1 + T2 + S + RN + N + JP + CP, data=df) # removes CP
+summary(fit4)
+AIC(fit4)
+
+fit5 <- lm(Cost24 ~ T2 + S + RN + N + JP, data=df) # removes T1
+summary(fit5)
+AIC(fit5)
+
+fit6 <- lm(Cost24 ~ T2 + S + RN + N + JP, data=df) # removes RN
+summary(fit6)
+AIC(fit6)
+
+par(mfrow = c(2, 2))
+plot(fit6)
+
+```
